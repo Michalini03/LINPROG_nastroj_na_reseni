@@ -4,10 +4,50 @@
 - proměnné musí být vždy unikátní a nezačínát čislicemi či znaky **+**, **-**, *, **^**, **<**, **>**, **=**, **(**, **)**, **[**, **]**, **,** , nebo **:**
 - proměnné nesmí nést stejný název jako klíčová slova z formátu LP
 - pro zadání semestrání práce využiváme redukovanou verzi LP formátu
+- komentáře ve zdrojvém souboru začínají znakem \
+- pořadí sekcí (kromě **Konečné sekce**) není fixní
+- na výskyt neplatných operátorů, neznámých sekcí a jiných problémů program reaguje vypsáním chybového hlášení "Syntax error!\n" a skončí s návratovou hodnotou 11
   - ### Objektivní sekce
       - začiná klíčovými slovy **Minimize**, **Maximize**
         #### Single-objective case
         - nachází se zde **jedna** lineární nebo kvadratická funkce, která zachycuje funkci problému
         - objekt většinou začíná **labelem**, ten se skládá ze jména, po kterém následuje dvojtečka a mezera (mezera není povinná)
         - po labeluje následuje předpis funkce, složené z koeficientů a proměnných, které jsou navzájem odděleny matematickými operátory (např 4.5x1 * x2)
-        - 
+        - kvadratické části rovnice se vkládají do uzavřených závorek [-], po kterém následuje / 2
+        - kvadratické pojmy mohou být **3 x ^ 2** nebo **2 x * y**
+        - při násobení není turné použít operand *, stačí pouze např. 3 x
+  - ### Podmínková sekce
+     - začíná kličovým slovem **Subject to**
+     - má libovolný počet omezení
+     - každé omezení začíná s **nepovinným** labelem
+     - po labelu následuje linární (s možností navazující kvadratického v [-]) výraz
+     - za výrazem se vyskytuje poměřovací operátor <, >, <=, >=, =
+     - na konec řádky je doplněna porovnávaná hodnota
+     - další podmínku začneme na nové řádce
+     - příklad: **c0: 2.5 x + 2.3 y + 5.3 z <= 8.1**
+  - ### Sekce ohraničení
+      - začiná klíčovým slovem **Bounds**
+      - každý řádek může obsahovat **spodní, horní nebo i oboje** ohraničení pro proměnou
+      - může přijít i klíčové slovo **"Inf" nebo "Infinity"**
+      - zároveň proměná může být **"free"** (bez omezení)
+      - příklad:
+        - Bounds:
+          - 0 <= x0 <= 1
+          - x1 <= 1.2
+          - x2 >= 3
+          - x3 free
+          - x2 >= -Inf
+    - ### Sekce proměnných
+      - začíná klíčovým slovem **Generals**
+      - obsahuje seznam použitých rozhodovacích proměnných oddělených znakem mezery
+      - pokud je v souboru nalezena proměnná, která v této sekci není uvedena, program skončí s chybovou hláškou **"Unknown variable "< j >"!\n"**, kde < j > je neznámá proměnná, a návratovou hodnotou 10
+      - pokud sekce obsahuje nepoužitou rozhodovací proměnnou <n>, program vypíše pouze varování "Warning: unused variable ’<n>’!\n"
+    - ### Konečná sekce
+      - vyskytuje se zde pouze klíčové slovo **End**
+      - pokud je něco za klíčovým slovem, vypíše se **Syntax error**
+## Return hodnoty
+-  EXIT_SUCCESS (0) => Nalezení konečného optimálního řešení
+-  1 => Vstupní soubour nenalezen, doplňující zpráva: **"Input file not found!\n"**
+-  2 => Pokud umístění pro výstup neexistuje, doplňující zpráva: **"Invalid output destination!\n"**
+-  10 => Neznámá proměnná v Sekci proměnných
+-  11 => Při výskytu neplatných operátorů, neznámých sekcí a jiných problémů (např. kontent za Konečnou sekcí), doplňující zpráva: **"Syntax Error\n"**
