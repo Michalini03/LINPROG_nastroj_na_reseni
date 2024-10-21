@@ -40,12 +40,12 @@
           - x2 >= 3
           - x3 free
           - x2 >= -Inf
-    - ### Sekce proměnných
+  - ### Sekce proměnných
       - začíná klíčovým slovem **Generals**
       - obsahuje seznam použitých rozhodovacích proměnných oddělených znakem mezery
       - pokud je v souboru nalezena proměnná, která v této sekci není uvedena, program skončí s chybovou hláškou **"Unknown variable "< j >"!\n"**, kde < j > je neznámá proměnná, a návratovou hodnotou 10
       - pokud sekce obsahuje nepoužitou rozhodovací proměnnou <n>, program vypíše pouze varování "Warning: unused variable ’<n>’!\n"
-    - ### Konečná sekce
+  - ### Konečná sekce
       - vyskytuje se zde pouze klíčové slovo **End**
       - pokud je něco za klíčovým slovem, vypíše se **Syntax error**
 ## Return hodnoty
