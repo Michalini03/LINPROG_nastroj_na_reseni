@@ -16,6 +16,9 @@
         - kvadratické části rovnice se vkládají do uzavřených závorek [-], po kterém následuje / 2
         - kvadratické pojmy mohou být **3 x ^ 2** nebo **2 x * y**
         - při násobení není turné použít operand *, stačí pouze např. 3 x
+        - příklad:
+            - Minimize
+                - obj: 3.1 x + 4.5 y + 10 z + [ x ^ 2 + 2 x * y + 3 y ^ 2 ] / 2
   - ### Podmínková sekce
      - začíná kličovým slovem **Subject to**
      - má libovolný počet omezení
@@ -49,5 +52,7 @@
 -  EXIT_SUCCESS (0) => Nalezení konečného optimálního řešení
 -  1 => Vstupní soubour nenalezen, doplňující zpráva: **"Input file not found!\n"**
 -  2 => Pokud umístění pro výstup neexistuje, doplňující zpráva: **"Invalid output destination!\n"**
--  10 => Neznámá proměnná v Sekci proměnných
+-  10 => Neznámá proměnná v Sekci proměnných, doplňující zpráva: **"Warning: unused variable ’<n>’!\n"**
 -  11 => Při výskytu neplatných operátorů, neznámých sekcí a jiných problémů (např. kontent za Konečnou sekcí), doplňující zpráva: **"Syntax Error\n"**
+-  20 => Účelová funkce může nabývat libovolně velkých hodnot, aniž by porušila některou z omezujících podmínek, tj. optimum je v nekonečnu -> program na tuto skutečnost upozorní, doplňující zpráva: **"Objective function is unbounded.\n"** 
+-  21 => Soustava omezení nemá žádnou společnou přípustnou oblast, tj. neexistuje žádný bod, který by vyhovoval všem omezením současně – úloha je nesplnitelná, doplňující zpráva: **"No feasible solution exists.\n"**
