@@ -3,15 +3,15 @@ CFLAGS = -Wall -Wextra -pedantic -ansi -g
 LDFLAGS = $(CFLAGS) -lm
 
 BUILD_DIR = build
-BIN = main.exe
-ARG = "src/test.txt"
+BIN = lp.exe
+ARG = "test.txt"
 
 all: clean $(BUILD_DIR) $(BUILD_DIR)/$(BIN)
 
-$(BUILD_DIR)/$(BIN): $(BUILD_DIR)/main.o $(BUILD_DIR)/lpfile.o
+$(BUILD_DIR)/$(BIN): $(BUILD_DIR)/lp.o $(BUILD_DIR)/lpfile.o
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-$(BUILD_DIR)/main.o: src/main.c
+$(BUILD_DIR)/lp.o: src/main.c
 	$(CC) -c $(CFLAGS) -o $@ $<
 
 $(BUILD_DIR)/lpfile.o: src/lpfile.c src/lpfile.h
