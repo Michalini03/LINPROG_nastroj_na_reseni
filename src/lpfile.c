@@ -3,7 +3,7 @@
 #include "lpfile.h"
 #include <ctype.h>
 
-#define NUM_OF_SECTORS 4
+#define NUM_OF_SECTORS 5
 
 #define NUM_OF_SUBJECT_TO 1
 #define NUM_OF_MAX 2
@@ -60,17 +60,17 @@ void remove_leading_tabs(char *line) {
     }
 }
 
-int lpp_load(const char* path) {
+int lpp_load(const char* path, struct LPProblem **lpp) {
 
     /* Promměné, které se budou naplňovat pro inicializaci struktury LPProblem */
-    /* double objective[];
-    double constraints[][MAX_VARS];
-    double rhs[];  */
-    int num_vars; 
-    int num_constraints;
+    double objective[MAX_VARS];
+    double constraints[MAX_ROWS][MAX_VARS];
+    double rhs[MAX_VARS];
+    int num_vars = 0; 
+    int num_constraints = 0;
 
 
-    int num_vars_in_generals;
+    int num_vars_in_generals = 0;
     char generals[MAX_VARS][LINE_LENGHT]; /* Pole pro názvy proměnných */
 
     /* Proměnné pro ověření správného počtu sektorů a pro označení aktuálně procházeného sektoru */
@@ -101,7 +101,7 @@ int lpp_load(const char* path) {
                         trim(line);
                         if (!starts_with_tab(line)) {
                             num_of_sector = 0;
-                            goto test_sector;
+                            break;
                         }
                         else
                         {
@@ -111,13 +111,14 @@ int lpp_load(const char* path) {
                         /* TODO: Zpracování řádku sekce "Subject To" */
 
                     } while (fgets(line, sizeof(line), file) != NULL);
-                    goto syntax_error;
+                    break;
+                    
                 case NUM_OF_MAX:
                     do {
                         trim(line);
                         if (!starts_with_tab(line)) {
                             num_of_sector = 0;
-                            goto test_sector;
+                            break;
                         }
                         else
                         {
@@ -127,14 +128,14 @@ int lpp_load(const char* path) {
                         /* TODO: Zpracování řádku sekce "Maximize / Minimize" */
 
                     } while (fgets(line, sizeof(line), file) != NULL);
-                    goto syntax_error;
+                    break;
 
                 case NUM_OF_BOUNDS:
                     do {
                         trim(line);
                         if (!starts_with_tab(line)) {
                             num_of_sector = 0;
-                            goto test_sector;
+                            break;
                         }
                         else
                         {
@@ -144,14 +145,14 @@ int lpp_load(const char* path) {
                         /* TODO: Zpracování řádku sekce "Bounds" */
 
                     } while (fgets(line, sizeof(line), file) != NULL);
-                    goto syntax_error;
+                    break;
 
                 case NUM_OF_GENERALS:
                     do {
                         trim(line); /* Odstranění mezer a komentářů */
                         if (!starts_with_tab(line)) {
                             num_of_sector = 0;
-                            goto test_sector;
+                            break;
                         } else {
                             remove_leading_tabs(line); /* Odstranění tabulátorů */
                         }
@@ -172,42 +173,47 @@ int lpp_load(const char* path) {
                             token = strtok(NULL, " ");
                         }
                     } while (fgets(line, sizeof(line), file) != NULL);
-                    goto syntax_error;
+                    break;
 
                 default:
                     goto syntax_error;
             }
-        } else {
-            test_sector:
-            if (strcmp(line, "Subject To") == 0) {
-                count_of_sectors += 1;
-                num_of_sector = NUM_OF_SUBJECT_TO;
-
-            } else if (strcmp(line, "Maximize") == 0 || strcmp(line, "Minimize") == 0) {
-                count_of_sectors += 1;
-                num_of_sector = NUM_OF_MAX;
-
-            } else if (strcmp(line, "Generals") == 0) {
-                count_of_sectors += 1;
-                num_of_sector = NUM_OF_GENERALS;
-
-            } else if (strcmp(line, "Bounds") == 0) {
+        }
+        if (strcmp(line, "Subject To") == 0) {
+            count_of_sectors += 1;
+            num_of_sector = NUM_OF_SUBJECT_TO;
+        } 
+        else if (strcmp(line, "Maximize") == 0 || strcmp(line, "Minimize") == 0) {
+            count_of_sectors += 1;
+            num_of_sector = NUM_OF_MAX;
+        } 
+        else if (strcmp(line, "Generals") == 0) {
+            count_of_sectors += 1;
+            num_of_sector = NUM_OF_GENERALS;
+        } 
+        else if (strcmp(line, "Bounds") == 0) {
                 count_of_sectors += 1;
                 num_of_sector = NUM_OF_BOUNDS;
-
-            } else if (strcmp(line, "End") == 0) {
-                break;
-
-            } else {
-                goto syntax_error;
-            }
-        }
+        } 
+        else if (strcmp(line, "End") == 0) {
+            count_of_sectors += 1;
+             break;
+        } 
+        else {
+            goto syntax_error;
+        }    
     }
 
     fclose(file);
 
     if (count_of_sectors != NUM_OF_SECTORS) {
         syntax_error: return 11;
+    }
+
+    *lpp = lpp_alloc(objective, constraints, rhs, num_vars, num_constraints);
+    if(!*lpp) {
+        /* return 11; */
+        printf("TODO - INIT\n");
     }
 
     return 0;
@@ -219,12 +225,15 @@ struct LPProblem* lpp_alloc(double objective[], double constraints[][MAX_VARS], 
     if (!new_lpp) {
         return NULL;
     }
+    if(!lpp_init(new_lpp, objective, constraints, rhs, num_vars, num_constraints)) {
+        return NULL;
+    }
     return new_lpp;
 }
 
 /* Funkce pro inicializaci LPProblem */
 int lpp_init(struct LPProblem *lp, double objective[], double constraints[][MAX_VARS], double rhs[], int num_vars, int num_constraints) {
-    if (!lp) {
+    if (!lp || !objective || !constraints || !rhs || num_vars < 1 || num_constraints < 0) {
         return 0;
     }
 
