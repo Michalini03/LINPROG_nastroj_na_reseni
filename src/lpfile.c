@@ -12,66 +12,23 @@
 
 #define LINE_LENGHT 256
 
-/* Funkce pro odstranění mezer na začátku a konci řetězce */
-void trim(char *str) {
-    char *end;
-
-    /* Odstraní znak nového řádku */
-    str[strcspn(str, "\n")] = '\0';
-
-    /* Najde pozici prvního výskytu '\' a ukončí řetězec na této pozici (ignorování komentářů) */
-    char *comment_pos = strchr(str, '\\');
-    if (comment_pos) {
-        *comment_pos = '\0';
-    }
-
-    while (isspace((unsigned char)*str)) {
-        str++;
-    }
-
-    if (*str == 0) {
-        return;
-    }
-
-    end = str + strlen(str) - 1;
-    while (end > str && isspace((unsigned char)*end)) {
-        end--;
-    }
-
-    *(end + 1) = '\0';
-}
-
-/* Funkce pro kontrolu začátku řádku tabulátorem */
-int starts_with_tab(const char* str) {
-    return (strncmp(str, "\t", 1) == 0);
-}
-
-/* Funkce pro odstranění tabulátoru ze začátku řádku */
-void remove_leading_tabs(char *line) {
-    /* Najde první znak, který není tabulátor */
-    char *start = line;
-    while (*start == '\t') {
-        start++;
-    }
-
-    /* Přesune řetězec na začátek */
-    if (start != line) {
-        memmove(line, start, strlen(start) + 1);
-    }
-}
 
 int lpp_load(const char* path, struct LPProblem **lpp) {
 
-    /* Promměné, které se budou naplňovat pro inicializaci struktury LPProblem */
+    /* Proměnné, které se budou naplňovat pro inicializaci struktury LPProblem */
     double objective[MAX_VARS];
     double constraints[MAX_ROWS][MAX_VARS];
     double rhs[MAX_VARS];
     int num_vars = 0; 
     int num_constraints = 0;
 
+    double lower_bounds[MAX_VARS];
+    double upper_bounds[MAX_VARS];
 
+    /* Proměnné pro kontrolu použitých proměnných  */
     int num_vars_in_generals = 0;
-    char generals[MAX_VARS][LINE_LENGHT]; /* Pole pro názvy proměnných */
+    char generals[MAX_VARS][LINE_LENGHT]; /* Pole pro názvy proměnných ze sekce GENERALS */
+    char used_generals[MAX_VARS][LINE_LENGHT]; /* Pole pro názvy proměnných využitých v účelové funkci */
 
     /* Proměnné pro ověření správného počtu sektorů a pro označení aktuálně procházeného sektoru */
     int num_of_sector = 0;
@@ -87,7 +44,7 @@ int lpp_load(const char* path, struct LPProblem **lpp) {
     while (fgets(line, sizeof(line), file) != NULL) {
 
         /* Odstraní mezery na začátku a konci */
-        trim(line);
+        lpp_prepare_str(line);
 
         /* Pokud je řádek prázdný po oříznutí, pokračujeme */
         if (line[0] == '\0') {
@@ -98,14 +55,14 @@ int lpp_load(const char* path, struct LPProblem **lpp) {
             switch (num_of_sector) {
                 case NUM_OF_SUBJECT_TO:
                     do {
-                        trim(line);
-                        if (!starts_with_tab(line)) {
+                        lpp_prepare_str(line);
+                        if (!lpp_undersection_control(line)) {
                             num_of_sector = 0;
                             break;
                         }
                         else
                         {
-                            remove_leading_tabs(line);
+                            lpp_undersection_prepare(line);
                         }
 
                         /* TODO: Zpracování řádku sekce "Subject To" */
@@ -113,33 +70,92 @@ int lpp_load(const char* path, struct LPProblem **lpp) {
                     } while (fgets(line, sizeof(line), file) != NULL);
                     break;
                     
-                case NUM_OF_MAX:
+               case NUM_OF_MAX:
                     do {
-                        trim(line);
-                        if (!starts_with_tab(line)) {
+                        lpp_prepare_str(line);
+                        if (!lpp_undersection_control(line)) {
                             num_of_sector = 0;
                             break;
-                        }
-                        else
-                        {
-                            remove_leading_tabs(line);
+                        } else {
+                            lpp_undersection_prepare(line);
                         }
 
-                        /* TODO: Zpracování řádku sekce "Maximize / Minimize" */
+                        /* Rozdělení řádku na jednotlivé termy podle '+' a '-' */
+                        char *term = strtok(line, "+-");
+                        int sign = 1; /* Výchozí znaménko je kladné */
 
+                        while (term != NULL) {
+                            double coefficient = 1.0;
+                            char variable[LINE_LENGHT];
+
+                            /* Pokud je před termem '-', změníme znaménko */
+                            if (term > line && *(term - 1) == '-') {
+                                sign = -1;
+                            } else {
+                                sign = 1;
+                            }
+
+                            /* Zpracování termu */
+                            /* Oprava pro termy typu '2 * 2x_2' nebo '3x_1' */
+                            char *mul_pos = strchr(term, '*'); /* Zjištění, jestli je v termu '*' */
+                            double left_coeff = 1 * sign;
+                            double used_coeff;
+                            while (mul_pos) {
+                                /* Pokud je '*' v termu, jedná se o součin */                                
+                                char right_variable[LINE_LENGHT];
+                                
+                                /* Parsujeme levý koeficient a proměnnou s operátorem '*' */
+                                if (sscanf(term, "%lf * %s", &used_coeff, right_variable) == 2) {
+                                    left_coeff = left_coeff * used_coeff;
+                                    strcpy(term, right_variable);
+                                } else {
+                                    printf("Syntax error in Maximize/Minimize section!\n");
+                                    fclose(file);
+                                    goto syntax_error;
+                                }
+                                mul_pos = strchr(term, '*');
+                            }
+                            
+                                /* Pokud není '*' ve výrazu, jedná se o obyčejný term */
+                            if (sscanf(term, "%lf%s", &coefficient, variable) == 2) {
+                                coefficient = coefficient * left_coeff;
+                            } else if (sscanf(term, "%s", variable) == 1) {
+                                coefficient = 1.0 * sign; /* Implicitní koeficient je 1 */
+                            } else {
+                                printf("Syntax error in Maximize/Minimize section!\n");
+                                fclose(file);
+                                goto syntax_error;
+                            }
+
+                            /* Kontrola, zda není pole přeplněné */
+                            if (num_vars >= MAX_VARS) {
+                                printf("Error: Too many variables in objective function!\n");
+                                fclose(file);
+                                goto syntax_error;
+                            }
+
+                            /* Uložení koeficientu a proměnné */
+                            objective[num_vars] = coefficient;
+                            strcpy(used_generals[num_vars], variable);
+                            num_vars++;
+
+                            /* Další term */
+                            term = strtok(NULL, "+-");
+                        }
                     } while (fgets(line, sizeof(line), file) != NULL);
                     break;
 
+
                 case NUM_OF_BOUNDS:
                     do {
-                        trim(line);
-                        if (!starts_with_tab(line)) {
+                        lpp_prepare_str(line);
+                        if (!lpp_undersection_control(line)) {
                             num_of_sector = 0;
                             break;
                         }
                         else
                         {
-                            remove_leading_tabs(line);
+                            lpp_undersection_prepare(line);
                         }
 
                         /* TODO: Zpracování řádku sekce "Bounds" */
@@ -149,12 +165,12 @@ int lpp_load(const char* path, struct LPProblem **lpp) {
 
                 case NUM_OF_GENERALS:
                     do {
-                        trim(line); /* Odstranění mezer a komentářů */
-                        if (!starts_with_tab(line)) {
+                        lpp_prepare_str(line); /* Odstranění mezer a komentářů */
+                        if (!lpp_undersection_control(line)) {
                             num_of_sector = 0;
                             break;
                         } else {
-                            remove_leading_tabs(line); /* Odstranění tabulátorů */
+                            lpp_undersection_prepare(line); /* Odstranění tabulátorů */
                         }
 
                         char *token = strtok(line, " "); /* Rozdělení řádku na části podle mezer */
@@ -210,7 +226,20 @@ int lpp_load(const char* path, struct LPProblem **lpp) {
         syntax_error: return 11;
     }
 
-    *lpp = lpp_alloc(objective, constraints, rhs, num_vars, num_constraints);
+    int is_there, i, j;
+    for(i = 0; i < num_vars_in_generals; i++) {
+        is_there = 0;
+        for(j = 0; j < num_vars; j++) {
+            if(strcmp(generals[i], generals[j]) == 0) {
+                is_there = 1;
+            }
+        }
+        if(!is_there) {
+            printf( "Warning: unused variable %s!\n", generals[i]);
+        }
+    }
+
+    *lpp = lpp_alloc(objective, constraints, rhs, num_vars, num_constraints, lower_bounds, upper_bounds);
     if(!*lpp) {
         /* return 11; */
         printf("TODO - INIT\n");
@@ -219,20 +248,20 @@ int lpp_load(const char* path, struct LPProblem **lpp) {
     return 0;
 }
 
-/* Funkce pro alokaci LPProblem */
-struct LPProblem* lpp_alloc(double objective[], double constraints[][MAX_VARS], double rhs[], int num_vars, int num_constraints) {
+
+struct LPProblem* lpp_alloc(double objective[], double constraints[][MAX_VARS], double rhs[], int num_vars, int num_constraints, double lower_bounds[], double upper_bounds[]) {
     struct LPProblem *new_lpp = malloc(sizeof(struct LPProblem));
     if (!new_lpp) {
         return NULL;
     }
-    if(!lpp_init(new_lpp, objective, constraints, rhs, num_vars, num_constraints)) {
+    if(!lpp_init(new_lpp, objective, constraints, rhs, num_vars, num_constraints, lower_bounds, upper_bounds)) {
         return NULL;
     }
     return new_lpp;
 }
 
-/* Funkce pro inicializaci LPProblem */
-int lpp_init(struct LPProblem *lp, double objective[], double constraints[][MAX_VARS], double rhs[], int num_vars, int num_constraints) {
+
+int lpp_init(struct LPProblem *lp, double objective[], double constraints[][MAX_VARS], double rhs[], int num_vars, int num_constraints, double lower_bounds[], double upper_bounds[]) {
     if (!lp || !objective || !constraints || !rhs || num_vars < 1 || num_constraints < 0) {
         return 0;
     }
@@ -258,4 +287,52 @@ int lpp_init(struct LPProblem *lp, double objective[], double constraints[][MAX_
     }
 
     return 1;
+}
+
+
+void lpp_prepare_str(char *str) {
+    char *end;
+
+    /* Odstraní znak nového řádku */
+    str[strcspn(str, "\n")] = '\0';
+
+    /* Najde pozici prvního výskytu '\' a ukončí řetězec na této pozici (ignorování komentářů) */
+    char *comment_pos = strchr(str, '\\');
+    if (comment_pos) {
+        *comment_pos = '\0';
+    }
+
+    while (isspace((unsigned char)*str)) {
+        str++;
+    }
+
+    if (*str == 0) {
+        return;
+    }
+
+    end = str + strlen(str) - 1;
+    while (end > str && isspace((unsigned char)*end)) {
+        end--;
+    }
+
+    *(end + 1) = '\0';
+}
+
+
+int lpp_undersection_control(const char* str) {
+    return (strncmp(str, "\t", 1) == 0);
+}
+
+
+void lpp_undersection_prepare(char *line) {
+    /* Najde první znak, který není tabulátor */
+    char *start = line;
+    while (*start == '\t') {
+        start++;
+    }
+
+    /* Přesune řetězec na začátek */
+    if (start != line) {
+        memmove(line, start, strlen(start) + 1);
+    }
 }
