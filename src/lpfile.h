@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "simplex.h"
 
 #ifndef LPFILE_H
 #define LPFILE_H
@@ -11,12 +12,17 @@
 struct LPProblem {
     int num_vars;
     int num_constraints;
+
     double objective[MAX_VARS];
     double constraints[MAX_ROWS][MAX_VARS];
     double rhs[MAX_VARS];
 
     double lower_bounds[MAX_VARS];
     double upper_bounds[MAX_VARS];
+
+    char vars[MAX_VARS][LINE_LENGTH];
+    char b_column_vars[MAX_ROWS][LINE_LENGTH];
+    char operators[MAX_VARS][LINE_LENGTH];
 };
 
 /* Načte soubor LP a naplní strukturu LPProblem */
@@ -25,8 +31,10 @@ int lpp_load(const char* path, struct LPProblem **lpp);
 /* TODO: Funkce, která zapíše výsledky LP do zdrojového souboru */
 int lpp_write();
 
-/* TODO: Funkce, která vyřeší zadaný úkol lineárního programování */
-void lpp_solve(struct LPProblem *lp);
+int lpp_print(struct LPProblem *lp);
+
+/* Funkce vyřeší LP nebo zjistí jeho neřešitelnost, hodnoty ukládá do atributu rh */
+int lpp_solve(struct LPProblem *lp);
 
 /* Funkce pro alokaci a inicializaci LPProblem */
 struct LPProblem* lpp_alloc(double objective[], double constraints[][MAX_VARS], double rhs[], int num_vars, int num_constraints, double lower_bounds[], double upper_bound[]);

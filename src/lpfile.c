@@ -336,3 +336,183 @@ void lpp_undersection_prepare(char *line) {
         memmove(line, start, strlen(start) + 1);
     }
 }
+
+
+int lpp_print(struct LPProblem *lp) {
+    if(lp == NULL) {
+        return 0;
+    }
+    int i, j, found;
+    for(i = 0; i < lp->num_vars; i++) {
+        found = 0;
+        for(j = 0; j < lp->num_constraints; j++) {
+            if(strcmp(lp->vars[i], lp->b_column_vars[j]) == 0) {
+                printf("%s = %.4f\n", lp->vars[i], lp->rhs[j]);
+                found = 1;
+            }
+        }
+        if(!found) {
+            printf("%s = 0\n", lp->vars[i]);
+        }
+    }
+    return 1;
+}
+
+int lpp_solve(struct LPProblem *lp) {
+    int i, j;
+    for(i = 0; i < lp->num_vars; i++) {
+        if(lp->lower_bounds[i] != -1 || lp->upper_bounds[i] != -1) {
+            if (lp->lower_bounds[i] > lp->upper_bounds[i]) {
+                return 21;
+            }
+            
+        }
+    }
+    double simplex[lp->num_constraints][(lp->num_constraints*2) + lp->num_vars];
+    
+    int num_vars = lp->num_vars;
+    int num_constraints = lp->num_constraints;
+
+    /* Připrava simplexové matice */
+    for (i = 0; i < num_constraints; i++) {
+        for (j = 0; j < num_vars; j++) {
+            simplex[i][j] = lp->constraints[i][j];
+        }
+        if (strcmp(lp->operators[i],"<=") == 0) {
+            simplex[i][i + num_vars] = 1;
+        }
+        else if (strcmp(lp->operators[i], ">=") == 0) {
+            simplex[i][i + num_vars] = -1;
+            simplex[i][i + num_vars + num_constraints] = 1;
+        }
+        else if (strcmp(lp->operators[i],"=") == 0) {
+            simplex[i][i + num_vars + num_constraints] = 1;
+        } 
+    }
+
+    double* c_row = simplex_prepare_c_row(num_vars, num_constraints, lp->objective, lp->operators);
+    if (c_row == NULL) {
+        return -1;
+    }
+
+    for (i = 0; i < num_constraints; i++) {
+        if(strcmp(lp->operators[i], "<=") == 0) {
+            strcpy(lp->b_column_vars[i], "s");
+        }
+        else {
+            strcpy(lp->b_column_vars[i], "a");
+        }
+    }
+
+    double* basis_column = simplex_preparace_basis_column(num_constraints, lp->operators);
+    if (basis_column == NULL) {
+        free(c_row);
+        return -1;
+    }
+    
+    double* z_row = simplex_prepare_z_row(num_vars, num_constraints, basis_column, simplex);
+    double* c_z_row = simplex_prepare_c_z_row(num_vars + (num_constraints * 2), c_row, z_row);
+
+    while (simplex_check_optimal_solution(c_z_row, num_vars + (num_constraints * 2))) {
+        /* printf("\n BASIS  \n");
+        for(i = 0; i < num_constraints; i++) {
+            printf("%f\n", basis_column[i]);
+        }
+        printf("\n C_ROW \n");
+        for(i = 0; i < num_vars + num_constraints*2; i++) {
+            printf("%f ", c_row[i]);
+        }
+        printf("\n Z_ROW \n");
+        for(i = 0; i < num_vars + num_constraints*2; i++) {
+        printf("%f ", z_row[i]);
+        }    
+        printf("\n C_Z_ROW \n");
+        for(i = 0; i < num_vars + num_constraints*2; i++) {
+            printf("%f ", c_z_row[i]);
+        }
+        printf("\n"); */
+
+        int pivot_index = simplex_find_pivot(c_z_row, num_vars + (num_constraints * 2));
+        if (pivot_index < 0 || pivot_index >= num_vars + (num_constraints * 2)) {
+            free(c_row);
+            free(basis_column);
+            free(z_row);
+            free(c_z_row);   
+            return -1;
+        }
+
+        int basis_replace_index = simplex_find_basis_replace(lp->rhs, pivot_index, num_vars, num_constraints, simplex);
+        if (basis_replace_index < 0 || basis_replace_index >= num_constraints) {
+            free(c_row);
+            free(basis_column);
+            free(z_row);
+            free(c_z_row);
+            return 20; /* Pokud jsem nenašel ani jedno kladné, funkce je neomezená */
+        }
+
+        /* V případě, že nehrazuji Artifical Variable, musím se jí zbavit */
+        if (strcmp(lp->b_column_vars[basis_replace_index], "a") == 0) {
+            for (i = 0; i < num_constraints; i++) {
+                simplex[i][basis_replace_index] = 0;
+            }
+            c_row[basis_replace_index] = 0;
+            z_row[basis_replace_index] = 0;
+            c_z_row[basis_replace_index] = 0;
+        }
+        basis_column[basis_replace_index] = c_row[pivot_index];
+
+        int x = basis_replace_index;
+        int y = pivot_index;
+        double pivot_value = simplex[x][y];
+        if(pivot_value <= 0) {
+            return 20;
+        }
+
+        /* Změná názvů proměnných */
+        if(y >= num_vars) {
+            if (y >= num_vars + num_constraints) {
+                strcpy(lp->b_column_vars[x], "a");
+            }
+            else {
+                strcpy(lp->b_column_vars[x], "s");
+            }
+        }
+        else {
+            strcpy(lp->b_column_vars[x], lp->vars[y]);
+        }
+
+        /* Úprava řádku pivotu */
+        for (i = 0; i < num_vars + num_constraints; i++) {
+            simplex[x][i] /= pivot_value;
+        }
+        lp->rhs[x] /= pivot_value;
+
+        /* Úprava ostatních řádků */
+        for (i = 0; i < num_constraints; i++) {
+            if (i != x) {
+                double main_col_val = simplex[i][y];
+                for (j = 0; j < num_vars + num_constraints; j++) {
+                    simplex[i][j] -= simplex[x][j] * main_col_val;
+                }
+                lp->rhs[i] -= lp->rhs[x] * main_col_val;
+            }
+        }
+
+        z_row = simplex_prepare_z_row(num_vars, num_constraints, basis_column, simplex);
+        c_z_row = simplex_prepare_c_z_row(num_vars + (num_constraints * 2), c_row, z_row);
+
+        
+    }
+
+    free(c_row);
+    free(basis_column);
+    free(z_row);
+    free(c_z_row);
+    for(i = 0; i < num_constraints; i++) {
+        if(strcmp(lp->b_column_vars[i], "a") == 0) {
+            return 21;
+        }
+    }
+
+    return 0;
+}

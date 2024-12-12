@@ -41,6 +41,25 @@ int main(int argc, char const *argv[]) {
         }
     }
 
+    int result;
+    result = lpp_solve(LPPSolver);
+    
+    if(result) {
+        switch (result)
+        {
+        case 20:
+            printf("Objective function is unbounded.\n");
+            return 20;
+            break;
+        
+        case 21:
+            printf("No feasible solution exists.\n" );
+            return 21;
+            break;
+        default:
+            break;
+        }
+    }
 
     /* Kontrola pro správné zadání output souboru */
     if(argc > 2) {
@@ -53,6 +72,8 @@ int main(int argc, char const *argv[]) {
             return 2;
         }
     }
-    
+    else {
+
+    }
     return EXIT_SUCCESS;
 }
