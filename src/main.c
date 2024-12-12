@@ -71,6 +71,9 @@ int main(int argc, char const *argv[]) {
             printf("Invalid output destination!\n");
             return 2;
         }
+        if(lpp_write(LPPSolver, argv[3])) {
+
+        }
     }
     else {
 

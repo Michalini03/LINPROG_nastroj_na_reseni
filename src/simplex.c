@@ -4,16 +4,20 @@
 #include <string.h>
 
 double* simplex_prepare_c_row(const int num_bounds, const int num_vars, double objective[], char operators[][LINE_LENGTH]) {
+    double* c_row;
+    int i;
+
     if (num_bounds <= 0 || num_vars <= 0 || objective == NULL || operators == NULL) {
         return NULL;
     }
 
-    double* c_row = (double*)malloc((num_vars + (num_bounds*2)) * sizeof(double));
+    c_row = (double*)malloc((num_vars + (num_bounds*2)) * sizeof(double));
+    
     if (c_row == NULL) {
         return NULL;
     }
 
-    int i;
+    
     for (i = 0; i < num_vars; i++) {
         c_row[i] = objective[i];
     }
@@ -34,16 +38,19 @@ double* simplex_prepare_c_row(const int num_bounds, const int num_vars, double o
 }
 
 double* simplex_preparace_basis_column(const int num_bounds, char operators[][LINE_LENGTH]) {
+    double* basis_column;
+    int i;
+    
     if (num_bounds <= 0 || operators == NULL) {
         return NULL;
     }
 
-    double* basis_column = (double*)malloc(num_bounds * sizeof(double));
+    basis_column = (double*)malloc(num_bounds * sizeof(double));
     if (basis_column == NULL) {
         return NULL;
     }
 
-    int i;
+
     for (i = 0; i < num_bounds; i++) {
         if(strcmp(operators[i], "<=") == 0) {
             basis_column[i] = 0;
@@ -57,16 +64,18 @@ double* simplex_preparace_basis_column(const int num_bounds, char operators[][LI
 }
 
 double* simplex_prepare_z_row(const int num_vars, const int num_bounds, double basis_column[], double simplex[num_bounds][num_vars + (num_bounds * 2)]) {
+    double* z_row;
+    int i, j;
+    
     if (num_vars <= 0 || num_bounds <= 0 || basis_column == NULL || simplex == NULL) {
         return NULL;
     }
 
-    double* z_row = (double*)malloc((num_vars + (num_bounds * 2)) * sizeof(double));
+    z_row = (double*)malloc((num_vars + (num_bounds * 2)) * sizeof(double));
     if (z_row == NULL) {
         return NULL;
     }
 
-    int i, j;
     for (i = 0; i < num_vars + (num_bounds * 2); i++) {
         z_row[i] = 0;
         for (j = 0; j < num_bounds; j++) {
@@ -78,16 +87,18 @@ double* simplex_prepare_z_row(const int num_vars, const int num_bounds, double b
 }
 
 double* simplex_prepare_c_z_row(const int n, double c_row[], double z_row[]) {
+    double* c_z_row;
+    int i;
+
     if (n <= 0 || c_row == NULL || z_row == NULL) {
         return NULL;
     }
 
-    double* c_z_row = (double*)malloc(n * sizeof(double));
+    c_z_row = (double*)malloc(n * sizeof(double));
     if (c_z_row == NULL) {
         return NULL;
     }
     
-    int i;
     for (i = 0; i < n; i++) {
         c_z_row[i] = c_row[i] - z_row[i];
     }
@@ -96,11 +107,12 @@ double* simplex_prepare_c_z_row(const int n, double c_row[], double z_row[]) {
 }
 
 int simplex_check_optimal_solution(double c_z_row[], const int n) {
+    int i;
+    
     if (c_z_row == NULL || n <= 0) {
         return 0;
     }
-
-    int i;
+ 
     for (i = 0; i < n; i++) {
         if (c_z_row[i] > 0) {
             return 1;
@@ -111,14 +123,16 @@ int simplex_check_optimal_solution(double c_z_row[], const int n) {
 }
 
 int simplex_find_pivot(double c_z_row[], const int n) {
+    int i, max_index;
+    double max_value;
+    
     if (n <= 0 || c_z_row == NULL) {
         return -1;
     }
 
-    double max_value = -1;
-    int max_index = -1;
+    max_value = -1;
+    max_index = -1;
 
-    int i;
     for (i = 0; i < n; i++) {
         if (c_z_row[i] > max_value) {
             max_value = c_z_row[i];
@@ -130,14 +144,16 @@ int simplex_find_pivot(double c_z_row[], const int n) {
 }
 
 int simplex_find_basis_replace(double rh[], const int pivot_index, const int num_vars, const int num_bounds, double simplex[][num_vars + (num_bounds * 2)]) {
+    int i, replace_basis_index;
+    double min_value;
+    
     if (simplex == NULL || rh == NULL || pivot_index < 0 || num_bounds <= 0) {
         return -1;
     }
 
-    double min_value = -1;
-    int replace_basis_index = -1;
+    min_value = -1;
+    replace_basis_index = -1;
 
-    int i;
     for (i = 0; i < num_bounds; i++) {
         if (simplex[i][pivot_index] > 0) {
             double ratio = rh[i] / simplex[i][pivot_index];

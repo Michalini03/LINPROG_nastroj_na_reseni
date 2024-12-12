@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "lpfile.h"
 #include <ctype.h>
@@ -33,6 +34,8 @@ int lpp_load(const char* path, struct LPProblem **lpp) {
     /* Proměnné pro ověření správného počtu sektorů a pro označení aktuálně procházeného sektoru */
     int num_of_sector = 0;
     int count_of_sectors = 0;
+
+    int is_there, i, j;
 
     FILE *file = fopen(path, "r");
     if (!file) {
@@ -226,7 +229,7 @@ int lpp_load(const char* path, struct LPProblem **lpp) {
         syntax_error: return 11;
     }
 
-    int is_there, i, j;
+    
     for(i = 0; i < num_vars_in_generals; i++) {
         is_there = 0;
         for(j = 0; j < num_vars; j++) {
@@ -262,15 +265,15 @@ struct LPProblem* lpp_alloc(double objective[], double constraints[][MAX_VARS], 
 
 
 int lpp_init(struct LPProblem *lp, double objective[], double constraints[][MAX_VARS], double rhs[], int num_vars, int num_constraints, double lower_bounds[], double upper_bounds[]) {
+    int i;
+    int j;
+    
     if (!lp || !objective || !constraints || !rhs || num_vars < 1 || num_constraints < 0) {
         return 0;
     }
 
     lp->num_vars = num_vars;
     lp->num_constraints = num_constraints;
-
-    int i;
-    int j;
 
     for (i = 0; i < num_vars; i++) {
         lp->objective[i] = objective[i];
@@ -285,6 +288,9 @@ int lpp_init(struct LPProblem *lp, double objective[], double constraints[][MAX_
     for (i = 0; i < num_constraints; i++) {
         lp->rhs[i] = rhs[i];
     }
+
+    memcpy(lp->lower_bounds, lower_bounds, num_vars * sizeof(double));
+    memcpy(lp->upper_bounds, upper_bounds, num_vars * sizeof(double));
 
     return 1;
 }
@@ -339,10 +345,11 @@ void lpp_undersection_prepare(char *line) {
 
 
 int lpp_print(struct LPProblem *lp) {
+    int i, j, found;
     if(lp == NULL) {
         return 0;
     }
-    int i, j, found;
+    
     for(i = 0; i < lp->num_vars; i++) {
         found = 0;
         for(j = 0; j < lp->num_constraints; j++) {
@@ -358,8 +365,48 @@ int lpp_print(struct LPProblem *lp) {
     return 1;
 }
 
+int lpp_write(struct LPProblem *lp, const char output_path[]) {
+    FILE *fptr;
+    int i, j, found;
+    
+    if (lp == NULL || output_path == NULL) {
+
+    }
+
+    fptr = fopen(output_path, "w");
+    if (fptr == NULL) {
+        return 2;
+    }
+    
+    for(i = 0; i < lp->num_vars; i++) {
+        found = 0;
+        for(j = 0; j < lp->num_constraints; j++) {
+            if(strcmp(lp->vars[i], lp->b_column_vars[j]) == 0) {
+                fprintf(fptr, "%s = %.4f\n", lp->vars[i], lp->rhs[j]);
+                found = 1;
+            }
+        }
+        if(!found) {
+            fprintf(fptr, "%s = 0\n", lp->vars[i]);
+        }
+    }
+    fclose(fptr);
+    return 0;
+}
+
 int lpp_solve(struct LPProblem *lp) {
     int i, j;
+
+    double simplex[lp->num_constraints][(lp->num_constraints*2) + lp->num_vars];
+
+    double *basis_column;
+
+    double *c_row;
+    double *z_row;
+    double *c_z_row;
+
+    int num_vars, num_constraints;
+
     for(i = 0; i < lp->num_vars; i++) {
         if(lp->lower_bounds[i] != -1 || lp->upper_bounds[i] != -1) {
             if (lp->lower_bounds[i] > lp->upper_bounds[i]) {
@@ -368,10 +415,10 @@ int lpp_solve(struct LPProblem *lp) {
             
         }
     }
-    double simplex[lp->num_constraints][(lp->num_constraints*2) + lp->num_vars];
     
-    int num_vars = lp->num_vars;
-    int num_constraints = lp->num_constraints;
+    
+    num_vars = lp->num_vars;
+    num_constraints = lp->num_constraints;
 
     /* Připrava simplexové matice */
     for (i = 0; i < num_constraints; i++) {
@@ -390,7 +437,7 @@ int lpp_solve(struct LPProblem *lp) {
         } 
     }
 
-    double* c_row = simplex_prepare_c_row(num_vars, num_constraints, lp->objective, lp->operators);
+    c_row = simplex_prepare_c_row(num_vars, num_constraints, lp->objective, lp->operators);
     if (c_row == NULL) {
         return -1;
     }
@@ -404,14 +451,14 @@ int lpp_solve(struct LPProblem *lp) {
         }
     }
 
-    double* basis_column = simplex_preparace_basis_column(num_constraints, lp->operators);
+    basis_column = simplex_preparace_basis_column(num_constraints, lp->operators);
     if (basis_column == NULL) {
         free(c_row);
         return -1;
     }
     
-    double* z_row = simplex_prepare_z_row(num_vars, num_constraints, basis_column, simplex);
-    double* c_z_row = simplex_prepare_c_z_row(num_vars + (num_constraints * 2), c_row, z_row);
+    z_row = simplex_prepare_z_row(num_vars, num_constraints, basis_column, simplex);
+    c_z_row = simplex_prepare_c_z_row(num_vars + (num_constraints * 2), c_row, z_row);
 
     while (simplex_check_optimal_solution(c_z_row, num_vars + (num_constraints * 2))) {
         /* printf("\n BASIS  \n");
@@ -501,13 +548,13 @@ int lpp_solve(struct LPProblem *lp) {
         z_row = simplex_prepare_z_row(num_vars, num_constraints, basis_column, simplex);
         c_z_row = simplex_prepare_c_z_row(num_vars + (num_constraints * 2), c_row, z_row);
 
-        
     }
 
     free(c_row);
     free(basis_column);
     free(z_row);
     free(c_z_row);
+
     for(i = 0; i < num_constraints; i++) {
         if(strcmp(lp->b_column_vars[i], "a") == 0) {
             return 21;

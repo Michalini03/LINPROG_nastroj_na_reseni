@@ -29,7 +29,7 @@ struct LPProblem {
 int lpp_load(const char* path, struct LPProblem **lpp);
 
 /* TODO: Funkce, která zapíše výsledky LP do zdrojového souboru */
-int lpp_write();
+int lpp_write(struct LPProblem *lp, const char output_path[]);
 
 int lpp_print(struct LPProblem *lp);
 
