@@ -7,7 +7,7 @@ double* simplex_prepare_c_row(const int num_bounds, const int num_vars, double o
 
 double* simplex_preparace_basis_column(const int num_bounds, char operators[][LINE_LENGTH]);
 
-double* simplex_prepare_z_row(const int num_vars, const int num_bounds, double basis_column[num_bounds], double simplex[num_bounds][num_vars+num_bounds]);
+double* simplex_prepare_z_row(const int num_vars, const int num_bounds, double basis_column[], double* simplex[]);
 
 double* simplex_prepare_c_z_row(const int n, double c_row[], double z_row[]);
 
@@ -15,7 +15,7 @@ int simplex_check_optimal_solution(double c_z_row[], const int n);
 
 int simplex_find_pivot(double c_z_row[], const int n);
 
-int simplex_find_basis_replace(double rh[], const int pivot_index, const int num_vars, const int num_bounds, double simplex[][num_bounds+num_vars]);
+int simplex_find_basis_replace(double rh[], const int pivot_index, const int num_bounds, double* simplex[]);
 
 
 #endif

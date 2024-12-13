@@ -63,7 +63,7 @@ double* simplex_preparace_basis_column(const int num_bounds, char operators[][LI
     return basis_column;
 }
 
-double* simplex_prepare_z_row(const int num_vars, const int num_bounds, double basis_column[], double simplex[num_bounds][num_vars + (num_bounds * 2)]) {
+double* simplex_prepare_z_row(const int num_vars, const int num_bounds, double basis_column[], double* simplex[]) {
     double* z_row;
     int i, j;
     
@@ -143,7 +143,7 @@ int simplex_find_pivot(double c_z_row[], const int n) {
     return max_index;
 }
 
-int simplex_find_basis_replace(double rh[], const int pivot_index, const int num_vars, const int num_bounds, double simplex[][num_vars + (num_bounds * 2)]) {
+int simplex_find_basis_replace(double rh[], const int pivot_index, const int num_bounds, double* simplex[]) {
     int i, replace_basis_index;
     double min_value;
     

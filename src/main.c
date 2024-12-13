@@ -8,7 +8,9 @@
 #define INPUT_FILE_CMD_2 "--output"
 
 int main(int argc, char const *argv[]) {
-    int bool;
+    int bool, result;
+    const char *path;
+    struct LPProblem *LPPSolver;
 
     /* Pokud uživatel nezadá argument pro cestu k input souboru, program rovnou selže */
     if(argc < 2) {
@@ -16,11 +18,14 @@ int main(int argc, char const *argv[]) {
         return 1;
     }
 
-    const char *path  = argv[1];
-
-    struct LPProblem *LPPSolver = NULL;
+    path  = argv[1];
 
     bool = lpp_load(path, &LPPSolver);
+
+    if(!LPPSolver) {
+        printf("Allocation failed.\n");
+        return 3;
+    }
 
     /* Ověření, jestli se funkce lpp_load povedla */
     if(bool){
@@ -36,12 +41,16 @@ int main(int argc, char const *argv[]) {
             return 11;
             break;
         
+        case 3:
+            printf("Allocation failed.\n");
+            return 3;
+            break;
+        
         default:
             break;
         }
     }
 
-    int result;
     result = lpp_solve(LPPSolver);
     
     if(result) {
@@ -56,6 +65,12 @@ int main(int argc, char const *argv[]) {
             printf("No feasible solution exists.\n" );
             return 21;
             break;
+        
+        case 3:
+            printf("Allocation failed.\n");
+            return 3;
+            break;
+        
         default:
             break;
         }

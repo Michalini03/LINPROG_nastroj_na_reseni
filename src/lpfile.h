@@ -9,6 +9,8 @@
 #define MAX_VARS 100       /* Maximální počet proměnných */
 #define MAX_ROWS 100       /* Maximální počet omezení */
 
+#define LINE_LENGHT 256
+
 struct LPProblem {
     int num_vars;
     int num_constraints;
@@ -37,10 +39,10 @@ int lpp_print(struct LPProblem *lp);
 int lpp_solve(struct LPProblem *lp);
 
 /* Funkce pro alokaci a inicializaci LPProblem */
-struct LPProblem* lpp_alloc(double objective[], double constraints[][MAX_VARS], double rhs[], int num_vars, int num_constraints, double lower_bounds[], double upper_bound[]);
+struct LPProblem* lpp_alloc(double objective[], double constraints[][MAX_VARS], double rhs[], char vars[MAX_VARS][LINE_LENGHT], int num_vars, int num_constraints, double lower_bounds[], double upper_bound[]);
 
 /* Funkce pro inicializaci struktury LPProblem */
-int lpp_init(struct LPProblem *lp, double objective[], double constraints[][MAX_VARS], double rhs[], int num_vars, int num_constraints, double lower_bounds[], double upper_bound[]);
+int lpp_init(struct LPProblem *lp, double objective[], double constraints[][MAX_VARS], double rhs[], char vars[MAX_VARS][LINE_LENGHT], int num_vars, int num_constraints, double lower_bounds[], double upper_bound[]);
 
 /* TODO: Funkce pro uvolňění paměti */
 int lpp_dealloc(struct LPProblem **lp);
@@ -50,14 +52,5 @@ void lpp_deinit(struct LPProblem *lp);
 
 /* Připravení řádku zdrojové dokumentu pro další úpravy */
 void lpp_prepare_str(char *str);
-
-/* 
-Každý řádek podsekce by měl začínat odsazením, tato funkce provede 
-kontrolu, jestli se tak skutečně děje.
-*/
-int lpp_undersection_control(const char* str);
-
-/* Jestliže, je řádek z podsekce, připraví ho tím, že přeskočí odsazení */
-void lpp_undersection_prepare(char *line);
 
 #endif
