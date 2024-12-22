@@ -71,7 +71,7 @@ double* simplex_prepare_z_row(const int num_vars, const int num_bounds, double b
         return NULL;
     }
 
-    z_row = (double*)malloc((num_vars + (num_bounds * 2)) * sizeof(double));
+    z_row = (double*)malloc((num_vars + (num_bounds*2)) * sizeof(double));
     if (z_row == NULL) {
         return NULL;
     }

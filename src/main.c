@@ -9,8 +9,9 @@
 
 int main(int argc, char const *argv[]) {
     int bool, result;
-    const char *path;
+    const char *input_path, *output_path;
     struct LPProblem *LPPSolver;
+    int i;
 
     /* Pokud uživatel nezadá argument pro cestu k input souboru, program rovnou selže */
     if(argc < 2) {
@@ -18,14 +19,16 @@ int main(int argc, char const *argv[]) {
         return 1;
     }
 
-    path  = argv[1];
-
-    bool = lpp_load(path, &LPPSolver);
-
-    if(!LPPSolver) {
-        printf("Allocation failed.\n");
-        return 3;
+    for(i = 1; i < argc; i++) {
+        if(strcmp(argv[i], INPUT_FILE_CMD_1) == 0 || strcmp(argv[i], INPUT_FILE_CMD_2) == 0) {
+            output_path = argv[i+1];
+        }
+        else if(strcmp(argv[i-1], INPUT_FILE_CMD_1) != 0 && strcmp(argv[i-1], INPUT_FILE_CMD_2) != 0 && strcmp(argv[i], INPUT_FILE_CMD_1) != 0 && strcmp(argv[i], INPUT_FILE_CMD_2) != 0) {
+            input_path = argv[i];
+        }
     }
+
+    bool = lpp_load(input_path, &LPPSolver);
 
     /* Ověření, jestli se funkce lpp_load povedla */
     if(bool){
@@ -37,18 +40,23 @@ int main(int argc, char const *argv[]) {
             break;
 
         case 11:
-            printf("Syntax Error\n");
+            printf("Syntax error!\n");
             return 11;
             break;
         
         case 3:
-            printf("Allocation failed.\n");
+            printf("Allocation failed!.\n");
             return 3;
             break;
         
         default:
             break;
         }
+    }
+
+    if(!LPPSolver) {
+        printf("Allocation failed.\n");
+        return 3;
     }
 
     result = lpp_solve(LPPSolver);
@@ -58,16 +66,19 @@ int main(int argc, char const *argv[]) {
         {
         case 20:
             printf("Objective function is unbounded.\n");
+            lpp_dealloc(&LPPSolver);
             return 20;
             break;
         
         case 21:
             printf("No feasible solution exists.\n" );
+            lpp_dealloc(&LPPSolver);
             return 21;
             break;
         
         case 3:
             printf("Allocation failed.\n");
+            lpp_dealloc(&LPPSolver);
             return 3;
             break;
         
@@ -77,21 +88,32 @@ int main(int argc, char const *argv[]) {
     }
 
     /* Kontrola pro správné zadání output souboru */
-    if(argc > 2) {
-        if(argc == 3 || argc > 4) {
-            printf("Invalid output destination!\n");
-            return 2;
-        }
-        if(strcmp(argv[2], INPUT_FILE_CMD_1) != 0 && strcmp(argv[2], INPUT_FILE_CMD_2) != 0) {
-            printf("Invalid output destination!\n");
-            return 2;
-        }
-        if(lpp_write(LPPSolver, argv[3])) {
+    if (argc > 2) {
+        bool = lpp_write(LPPSolver, output_path);
+        if(bool) {
+            switch (bool)
+            {
+            case 2:
+                printf("Invalid output destination!\n" );
+                lpp_dealloc(&LPPSolver);
+                return 2;
+                break;
+            
+            case 3:
+                printf("Allocation failed!\n" );
+                lpp_dealloc(&LPPSolver);
+                return 3;
+                break;
 
+            default:
+                break;
+            }
         }
     }
     else {
+        lpp_print(LPPSolver);
 
     }
+    lpp_dealloc(&LPPSolver);
     return EXIT_SUCCESS;
 }

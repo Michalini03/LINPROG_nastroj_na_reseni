@@ -3,9 +3,9 @@ CFLAGS = -Wall -Wextra -pedantic -ansi -g
 LDFLAGS = $(CFLAGS) -lm
 
 BIN = lp.exe
-ARG = "./input.txt"
+ARG = "test.txt"
 ARG2 = "-o"
-ARG3 = "./output.txt"
+ARG3 = "output.txt"
 
 all: clean $(BUILD_DIR) $(BIN)
 
@@ -25,7 +25,8 @@ shunt.o: src/shunt.c src/shunt.h
 	$(CC) -c $(CFLAGS) -o $@ $<
 
 clean:
-	rm -rf lp.o lpfile.o simplex.o shunt.o $(BIN)
+	@if exist "$(BUILD_DIR)" del /F /Q "$(BUILD_DIR)\*"
+	del /F /Q lp.o lpfile.o simplex.o shunt.o $(BIN)
 
 run: all
 	./$(BIN) $(ARG)

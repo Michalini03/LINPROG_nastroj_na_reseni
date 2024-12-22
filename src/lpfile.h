@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "simplex.h"
+#include "shunt.h"
 
 #ifndef LPFILE_H
 #define LPFILE_H
@@ -39,10 +40,10 @@ int lpp_print(struct LPProblem *lp);
 int lpp_solve(struct LPProblem *lp);
 
 /* Funkce pro alokaci a inicializaci LPProblem */
-struct LPProblem* lpp_alloc(double objective[], double constraints[][MAX_VARS], double rhs[], char vars[MAX_VARS][LINE_LENGHT], int num_vars, int num_constraints, double lower_bounds[], double upper_bound[]);
+struct LPProblem* lpp_alloc(double objective[], double constraints[][MAX_VARS], double rhs[], char vars[MAX_VARS][LINE_LENGHT], int num_vars, int num_constraints, double lower_bounds[], double upper_bound[], char operators[MAX_VARS][LINE_LENGTH]);
 
 /* Funkce pro inicializaci struktury LPProblem */
-int lpp_init(struct LPProblem *lp, double objective[], double constraints[][MAX_VARS], double rhs[], char vars[MAX_VARS][LINE_LENGHT], int num_vars, int num_constraints, double lower_bounds[], double upper_bound[]);
+int lpp_init(struct LPProblem *lp, double objective[], double constraints[][MAX_VARS], double rhs[], char vars[MAX_VARS][LINE_LENGHT], int num_vars, int num_constraints, double lower_bounds[], double upper_bound[], char operators[MAX_VARS][LINE_LENGTH]);
 
 /* TODO: Funkce pro uvolňění paměti */
 int lpp_dealloc(struct LPProblem **lp);
