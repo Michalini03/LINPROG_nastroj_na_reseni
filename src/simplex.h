@@ -2,6 +2,7 @@
 #define SIMPLEX_H
 #define LINE_LENGTH 256
 #define M 1000
+#define EPSILON 0.000000001
 
 double* simplex_prepare_c_row(const int num_bounds, const int num_vars, double objective[], char operators[][LINE_LENGTH]);
 

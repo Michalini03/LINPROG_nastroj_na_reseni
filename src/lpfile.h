@@ -7,10 +7,19 @@
 #ifndef LPFILE_H
 #define LPFILE_H
 
-#define MAX_VARS 100       /* Maximální počet proměnných */
-#define MAX_ROWS 100       /* Maximální počet omezení */
+#define MAX_VARS 10       /* Maximální počet proměnných */
+#define MAX_ROWS 10       /* Maximální počet omezení */
 
-#define LINE_LENGHT 256
+#define LINE_LENGHT 256   /* Nadefinovaná maximální délka řádku */
+
+/* Ověření správnosti procházení sektorů */
+#define NUM_OF_SECTORS 5
+
+/* Označení pro sektory */
+#define NUM_OF_SUBJECT_TO 1
+#define NUM_OF_MAX 2
+#define NUM_OF_BOUNDS 3
+#define NUM_OF_GENERALS 4
 
 struct LPProblem {
     int num_vars;
@@ -53,5 +62,8 @@ void lpp_deinit(struct LPProblem *lp);
 
 /* Připravení řádku zdrojové dokumentu pro další úpravy */
 void lpp_prepare_str(char *str);
+
+/* Ověří správnost řádku */
+int lpp_check_line(const char *line);
 
 #endif

@@ -170,6 +170,9 @@ int shunt_get_postfix(char *infix, char **postfix) {
 
         /* Zavírací závorka */
         if (shunt_is_closed_bracket(ch)) {
+            if (shunt_is_operator(last_char[0])) {
+                return 11;
+            }
             if (var_index > 0) {
                 var_name[var_index] = '\0';
                 shunt_enqueue(var_name);

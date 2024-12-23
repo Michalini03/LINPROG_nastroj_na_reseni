@@ -43,6 +43,10 @@ int main(int argc, char const *argv[]) {
             printf("Syntax error!\n");
             return 11;
             break;
+
+        case 10:
+            return 10;
+            break;
         
         case 3:
             printf("Allocation failed!.\n");

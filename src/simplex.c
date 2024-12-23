@@ -114,11 +114,10 @@ int simplex_check_optimal_solution(double c_z_row[], const int n) {
     }
  
     for (i = 0; i < n; i++) {
-        if (c_z_row[i] > 0) {
+        if (c_z_row[i] > EPSILON) {
             return 1;
         }
     }
-
     return 0;
 }
 
