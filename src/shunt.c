@@ -1,8 +1,4 @@
 #include "shunt.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
 
 /* Zásobník pro operátory */
 char stack[MAX_STACK_SIZE];

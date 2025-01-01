@@ -4,7 +4,9 @@
 
 #include "lpfile.h"
 
+/** 1. Definice příkazů pro vložení output souboru. */
 #define INPUT_FILE_CMD_1 "-o"
+/** 2. Definice příkazů pro vložení output souboru. */
 #define INPUT_FILE_CMD_2 "--output"
 
 int main(int argc, char const *argv[]) {
@@ -45,6 +47,7 @@ int main(int argc, char const *argv[]) {
             break;
 
         case 10:
+            /* Zde se chybná hláška vypíše už ve funkci 'lpp_load' */
             return 10;
             break;
         

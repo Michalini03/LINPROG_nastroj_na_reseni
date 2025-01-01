@@ -596,7 +596,7 @@ int lpp_solve(struct LPProblem *lp) {
         }
     }
 
-    basis_column = simplex_preparace_basis_column(num_constraints, lp->operators);
+    basis_column = simplex_prepare_basis_column(num_constraints, lp->operators);
     if (basis_column == NULL) {
         free(c_row);
         for (i = 0; i < num_constraints; ++i) {

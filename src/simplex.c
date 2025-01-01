@@ -1,7 +1,4 @@
 #include "simplex.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 double* simplex_prepare_c_row(const int num_bounds, const int num_vars, double objective[], char operators[][LINE_LENGTH]) {
     double* c_row;
@@ -17,7 +14,6 @@ double* simplex_prepare_c_row(const int num_bounds, const int num_vars, double o
         return NULL;
     }
 
-    
     for (i = 0; i < num_vars; i++) {
         c_row[i] = objective[i];
     }
@@ -37,7 +33,7 @@ double* simplex_prepare_c_row(const int num_bounds, const int num_vars, double o
     return c_row;
 }
 
-double* simplex_preparace_basis_column(const int num_bounds, char operators[][LINE_LENGTH]) {
+double* simplex_prepare_basis_column(const int num_bounds, char operators[][LINE_LENGTH]) {
     double* basis_column;
     int i;
     
