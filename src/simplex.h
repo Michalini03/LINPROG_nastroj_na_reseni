@@ -7,6 +7,8 @@
 
 /** Maximální velikost řádku */
 #define LINE_LENGTH 256
+#define MAX_VARS 10       /* Maximální počet proměnných */
+#define MAX_ROWS 10       /* Maximální počet omezení */
 
 /** Definice M pro algoritmus Big M Tablue */
 #define M 10000
@@ -15,6 +17,17 @@
  * toto zařizuje kontrolu.
  */
 #define EPSILON 0.000000001
+
+/**
+ * \brief simplex_prepare_simplex_table Funkce připraví simplexovou tabulku pomocí koeficientů ze soustavy omezujících rovnic,
+ *          a hodnot slack a artificial proměnných..
+ * \param num_bounds Počet omezení.
+ * \param num_vars Počet proměnných.
+ * \param constraints Koeficienty soustavy rovnic omezujících funkcí.
+ * \param operators Operátory omezujících funkcí.
+ * \return Matice na doubly, reprecentující simplexovu tabulku.
+ */
+double **simplex_prepare_simplex_table(const int num_bounds, const int num_vars, double constraints[MAX_ROWS][MAX_VARS], char operators[][LINE_LENGTH]);
 
 /**
  * \brief simplex_prepare_c_row Funkce připraví C řádek, který je tvořen z koeficientů účelové funcke,

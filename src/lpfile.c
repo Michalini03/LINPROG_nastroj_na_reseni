@@ -1,8 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include "lpfile.h"
-#include <ctype.h>
 
 int lpp_load(const char* path, struct LPProblem **lpp) {
 
@@ -11,27 +7,28 @@ int lpp_load(const char* path, struct LPProblem **lpp) {
     char *token;
     char *colon;
 
-
     /* Proměnné, které se budou naplňovat pro inicializaci struktury LPProblem */
+    /* Potřebné proměnné pro Maximize\Minimize */
     double objective[MAX_VARS];
     int num_vars = 0; 
+    int minimize = 0;
 
-    char vars_order[MAX_ROWS][MAX_VARS][LINE_LENGHT];
-    double prep_constraints[MAX_ROWS][MAX_VARS];
-    double constraints[MAX_ROWS][MAX_VARS];
-
-
-    double rhs[MAX_VARS];
-    char operators[MAX_VARS][LINE_LENGTH];
+    /* Potřebné proměnné pro Subject to */
+    char vars_order[MAX_ROWS][MAX_VARS][LINE_LENGHT];   /**< Pro zapamotávní posloupnosti */
+    double prep_constraints[MAX_ROWS][MAX_VARS];        /**< Hodnoty omezení na vstupu */
+    double constraints[MAX_ROWS][MAX_VARS];             /**< Finální podoba soustavy rovnic */
+    double rhs[MAX_VARS];                               /**< Pravé strany soustavy rovnic */
+    char operators[MAX_VARS][LINE_LENGTH];              /**< Operátory soustavy rovnic */
     int num_constraints = 0;
+    
+    /* Potřebné proměnné pro Bounds */
     int bounds = 0;
-
     double lower_bounds[MAX_VARS];
     double upper_bounds[MAX_VARS];
     double lower_value, upper_value;
     char var[10];
 
-    /* Proměnné pro kontrolu použitých proměnných  */
+    /* Proměnné pro kontrolu použitých proměnných v Generals */
     int num_vars_in_generals = 0;
     char generals[MAX_VARS][LINE_LENGHT]; /* Pole pro názvy proměnných ze sekce GENERALS */
     char used_generals[MAX_VARS][LINE_LENGHT]; /* Pole pro názvy proměnných využitých v účelové funkci */
@@ -41,7 +38,7 @@ int lpp_load(const char* path, struct LPProblem **lpp) {
     int count_of_sectors = 0;
 
     int is_there, i, j, k;
-    int minimize = 0;
+
 
     /* Uložení postfixu */
     char **postfix;
@@ -65,6 +62,7 @@ int lpp_load(const char* path, struct LPProblem **lpp) {
             continue;
         }
 
+        /* Ze začátku porovnám, jestli se nejedná o název některého ze sektorů */
         if (strcmp(line, "Subject To") == 0) {
             count_of_sectors += 1;
             num_of_sector = NUM_OF_SUBJECT_TO;
@@ -88,26 +86,29 @@ int lpp_load(const char* path, struct LPProblem **lpp) {
             count_of_sectors += 1;
              break;
         }
+        /* Jestli se nejedná, pojďme řešit náležitý sektor */
         else if (num_of_sector) {
-            if(!lpp_check_line(line)) {
+            if (!lpp_check_line(line)) {
                 fclose(file);
                 return 11;
             }
             switch (num_of_sector) {
                 case NUM_OF_MAX:
                     postfix = shunt_alloc_postfix();
-                    if(!postfix) {
+                    if (!postfix) {
                         fclose(file);
                         return 3;
                     }
-                    if(shunt_get_postfix(line, postfix)) {
+
+                    if (shunt_get_postfix(line, postfix)) {
                         shunt_free_postfix(postfix);
                         fclose(file);
                         return 11;
                     };
+
                     /* shunt_print_postfix(postfix); */
                     result = postfix_parse_expression(postfix);
-                    if(result.size < 0) {
+                    if (result.size < 0) {
                         shunt_free_postfix(postfix);
                         postfix_free_expression(&result);
                         return 11;
@@ -117,18 +118,20 @@ int lpp_load(const char* path, struct LPProblem **lpp) {
                     /* postfix_print_expression(&result); */
                     num_vars = 0;
                     for (i = 0; i < result.size; i++) {
-                        if(result.terms[i].variable) {
+                        if (result.terms[i].variable) {
                             objective[num_vars] = result.terms[i].coefficient;
                             strcpy(used_generals[num_vars], result.terms[i].variable);
                             num_vars += 1;
                         }
                     }
+
                     postfix_free_expression(&result);
                     shunt_free_postfix(postfix);
                     postfix = NULL;
                     break;
 
                 case NUM_OF_BOUNDS:
+                    /* Ověření možných různých zápisů */
                     if(sscanf(line, "%lf <= %s <= %lf",&lower_value, var, &upper_value) == 3) {
                         lower_bounds[bounds] = lower_value;
                         upper_bounds[bounds] = upper_value;
@@ -159,7 +162,7 @@ int lpp_load(const char* path, struct LPProblem **lpp) {
                     break;
 
                 case NUM_OF_SUBJECT_TO:
-                    /* TODO: Zpracování řádku sekce "Subject To" */
+                    /* Rozdělení funkce podle operátora */
                     if (strstr(line, "<=") != NULL) {
                         token = strtok(line, "<=");
                         strcpy(operators[num_constraints], "<="); 
@@ -176,6 +179,10 @@ int lpp_load(const char* path, struct LPProblem **lpp) {
                         fclose(file);
                         return 11;
                     }
+
+                    /** Řádky v subject tu začínájí svým názvem, který končí znakem ':'
+                     * Snažíme se ho přeskočit
+                     */
                     colon = strchr(token, ':');
 
                     if (colon != NULL) {
@@ -186,12 +193,14 @@ int lpp_load(const char* path, struct LPProblem **lpp) {
                     }
 
                     lpp_prepare_str(token);
+
                     postfix = shunt_alloc_postfix();
-                    if(!postfix) {
+                    if (!postfix) {
                         fclose(file);
                         return 3;
                     }
-                    if(shunt_get_postfix(token, postfix)) {
+
+                    if (shunt_get_postfix(token, postfix)) {
                         shunt_free_postfix(postfix);
                         fclose(file);
                         return 11;
@@ -200,11 +209,11 @@ int lpp_load(const char* path, struct LPProblem **lpp) {
                     result = postfix_parse_expression(postfix);
                     num_vars = 0;
                     for (i = 0; i < result.size; i++) {
-                        if(result.terms[i].variable) {
+                        if (result.terms[i].variable) {
                             prep_constraints[num_constraints][num_vars] = result.terms[i].coefficient;
                             strcpy(vars_order[num_constraints][num_vars], result.terms[i].variable);
                             num_vars += 1;
-                            }
+                        }
                     }
 
                     postfix_free_expression(&result);
@@ -217,6 +226,7 @@ int lpp_load(const char* path, struct LPProblem **lpp) {
                         fclose(file);
                         return 11;
                     }
+                    
                     rhs[num_constraints] = strtod(token, NULL);
                     
                     num_constraints += 1;
@@ -236,7 +246,6 @@ int lpp_load(const char* path, struct LPProblem **lpp) {
 
                         /* Další token */
                         token = strtok(NULL, " ");
-                        
                     }
                     break;
 
@@ -260,63 +269,62 @@ int lpp_load(const char* path, struct LPProblem **lpp) {
     }
 
     /* Kontrola použitých proměnných */
-    for(i = 0; i < num_vars_in_generals; i++) {
+    for (i = 0; i < num_vars_in_generals; i++) {
         is_there = 0;
-        for(j = 0; j < num_vars; j++) {
-            if(strcmp(generals[i], used_generals[j]) == 0) {
+        for (j = 0; j < num_vars; j++) {
+            if (strcmp(generals[i], used_generals[j]) == 0) {
                 is_there = 1;
             }
         }
-        if(!is_there) {
+        if (!is_there) {
             printf( "Warning: unused variable '%s'!\n", generals[i]);
         }
     }
 
-    for(i = 0; i < num_vars; i++) {
+    for (i = 0; i < num_vars; i++) {
         is_there = 0;
-        for(j = 0; j < num_vars_in_generals; j++) {
+        for (j = 0; j < num_vars_in_generals; j++) {
             if(strcmp(used_generals[i], generals[j]) == 0) {
                 is_there = 1;
             }
         }
-        if(!is_there) {
+        if (!is_there) {
             printf("Unknown variable '%s'!\n", used_generals[i]);
             return 10;
         }
     }
 
     /* Naformátování podle správného pořadí */
-    for(i = 0; i < num_constraints; i++) {
-        for(j = 0; j < num_vars; j++) {
+    for (i = 0; i < num_constraints; i++) {
+        for (j = 0; j < num_vars; j++) {
             is_there = 0;
-            for(k = 0; k < num_constraints; k++) {
-                if(strcmp(used_generals[j], vars_order[i][k]) == 0) {
+            for (k = 0; k < num_constraints; k++) {
+                if (strcmp(used_generals[j], vars_order[i][k]) == 0) {
                     is_there = 1;
                     constraints[i][j] = prep_constraints[i][k];
                 }
             }
-            if(!is_there) {
+            if (!is_there) {
                 constraints[i][j] = 0;
             }
         }
     }
 
-
     /* Úprava hodnot v případě Minimize */
-    if(minimize) {
-        for(i = 0; i < num_vars; i++) {
+    if (minimize) {
+        for (i = 0; i < num_vars; i++) {
             objective[i] = objective[i] * -1;
         }
-        for(i = 0; i < num_constraints; i++) {
-            if(rhs[i] < 0) {
+        for (i = 0; i < num_constraints; i++) {
+            if (rhs[i] < 0) {
                 rhs[i] = rhs[i] * -1;
-                for(j = 0; j < num_vars; j++) {
+                for (j = 0; j < num_vars; j++) {
                     constraints[i][j] = constraints[i][j] * -1;
                 }
-                if(strcmp(operators[i], "<=") == 0) {
+                if (strcmp(operators[i], "<=") == 0) {
                     strcpy(operators[i], ">=");
                 }
-                else if(strcmp(operators[i], ">=") == 0) {
+                else if (strcmp(operators[i], ">=") == 0) {
                     strcpy(operators[i], "<=");
                 }
             }
@@ -334,13 +342,16 @@ int lpp_load(const char* path, struct LPProblem **lpp) {
 
 struct LPProblem* lpp_alloc(double objective[], double constraints[][MAX_VARS], double rhs[], char vars[MAX_VARS][LINE_LENGHT], int num_vars, int num_constraints, double lower_bounds[], double upper_bounds[], char operators[MAX_VARS][LINE_LENGTH]) {
     struct LPProblem *new_lpp = malloc(sizeof(struct LPProblem));
+
     if (!new_lpp) {
         return NULL;
     }
-    if(!lpp_init(new_lpp, objective, constraints, rhs, vars, num_vars, num_constraints, lower_bounds, upper_bounds, operators)) {
+
+    if (!lpp_init(new_lpp, objective, constraints, rhs, vars, num_vars, num_constraints, lower_bounds, upper_bounds, operators)) {
         free(new_lpp);
         return NULL;
     }
+
     return new_lpp;
 }
 
@@ -395,7 +406,9 @@ int lpp_dealloc(struct LPProblem **lp) {
 }
 
 void lpp_deinit(struct LPProblem *lp) {
-    if (!lp) return;
+    if (!lp) {
+        return;
+    }
 
     memset(lp->objective, 0, sizeof(lp->objective));
     memset(lp->constraints, 0, sizeof(lp->constraints));
@@ -412,11 +425,12 @@ void lpp_deinit(struct LPProblem *lp) {
 
 void lpp_prepare_str(char *str) {
     char *end, *comment_pos, *start;
+
     /* Odstraní znak nového řádku */
     str[strcspn(str, "\n")] = '\0';
 
     /* Odstraní odsazení */
-    if(strncmp(str, "\t", 1) == 0) {
+    if (strncmp(str, "\t", 1) == 0) {
         start = str;
         while (*start == '\t') {
             start++;
@@ -451,15 +465,15 @@ void lpp_prepare_str(char *str) {
 }
 
 int lpp_check_line(const char *line) {
-    if(!line) {
+    if (!line) {
         return 0;
     }
-    if(strstr(line, "<=") != NULL) {
-        if(strstr(line, ">=")) {
+    if (strstr(line, "<=") != NULL) {
+        if (strstr(line, ">=")) {
             return 0;
         }
     }
-    if(strstr(line, "<==") != NULL || strstr(line, ">==") != NULL || strstr(line, "==") != NULL || strstr(line, "=>")  != NULL || strstr(line, "=<")  != NULL) { 
+    if (strstr(line, "<==") != NULL || strstr(line, ">==") != NULL || strstr(line, "==") != NULL || strstr(line, "=>")  != NULL || strstr(line, "=<")  != NULL) { 
         return 0;
     }
     return 1;
@@ -468,19 +482,19 @@ int lpp_check_line(const char *line) {
 
 int lpp_print(struct LPProblem *lp) {
     int i, j, found;
-    if(lp == NULL) {
+    if (lp == NULL) {
         return 0;
     }
     
-    for(i = 0; i < lp->num_vars; i++) {
+    for (i = 0; i < lp->num_vars; i++) {
         found = 0;
-        for(j = 0; j < lp->num_constraints; j++) {
-            if(strcmp(lp->vars[i], lp->b_column_vars[j]) == 0) {
+        for (j = 0; j < lp->num_constraints; j++) {
+            if (strcmp(lp->vars[i], lp->b_column_vars[j]) == 0) {
                 printf("%s = %.4f\n", lp->vars[i], lp->rhs[j]);
                 found = 1;
             }
         }
-        if(!found) {
+        if (!found) {
             printf("%s = 0\n", lp->vars[i]);
         }
     }
@@ -490,28 +504,33 @@ int lpp_print(struct LPProblem *lp) {
 int lpp_write(struct LPProblem *lp, const char output_path[]) {
     FILE *fptr;
     int i, j, found;
+    int num_vars, num_constraints;
     
     if (lp == NULL || output_path == NULL) {
 
     }
+
+    num_vars = lp->num_vars;
+    num_constraints = lp->num_constraints;
 
     fptr = fopen(output_path, "w");
     if (fptr == NULL) {
         return 2;
     }
     
-    for(i = 0; i < lp->num_vars; i++) {
+    for (i = 0; i < num_vars; i++) {
         found = 0;
-        for(j = 0; j < lp->num_constraints; j++) {
+        for (j = 0; j < num_constraints; j++) {
             if(strcmp(lp->vars[i], lp->b_column_vars[j]) == 0) {
                 fprintf(fptr, "%s = %.4f\n", lp->vars[i], lp->rhs[j]);
                 found = 1;
             }
         }
-        if(!found) {
+        if (!found) {
             fprintf(fptr, "%s = 0\n", lp->vars[i]);
         }
     }
+
     fclose(fptr);
     return 0;
 }
@@ -534,48 +553,28 @@ int lpp_solve(struct LPProblem *lp) {
     int pivot_column_index, pivot_row_index, reset_zero;
     double pivot_value;
 
-    if(!lp) {
+    if (!lp) {
         return 3;
     }
 
-    for(i = 0; i < lp->num_vars; i++) {
-        if(lp->lower_bounds[i] != -1 && lp->upper_bounds[i] != -1) {
+    num_vars = lp->num_vars;
+    num_constraints = lp->num_constraints;
+
+    /* Ověřím, jestli omezí spodních hranic není větší, než omezení hranic horních */
+    for (i = 0; i < num_vars; i++) {
+        if (lp->lower_bounds[i] != -1 && lp->upper_bounds[i] != -1) {
             if (lp->lower_bounds[i] > lp->upper_bounds[i]) {
                 return 21;
             }
             
         }
     }
-    
-    num_vars = lp->num_vars;
-    num_constraints = lp->num_constraints;
 
-    /* Připrava simplexové matice */
-    simplex = malloc(num_constraints * sizeof(double*));
-    if(simplex == NULL) {
+    /* PŘÍPRAVA CELÉ SIMPLEXOVÉ TABULKY */
+
+    simplex = simplex_prepare_simplex_table(num_constraints, num_vars, lp->constraints, lp->operators);
+    if (!simplex) {
         return 3;
-    }
-    for (i = 0; i < num_constraints; ++i) {
-        simplex[i] = malloc((num_vars + num_constraints * 2) * sizeof(double));
-        if(simplex[i] == NULL) {
-            return 3;
-        }
-    }
-
-    for (i = 0; i < num_constraints; i++) {
-        for (j = 0; j < num_vars; j++) {
-            simplex[i][j] = lp->constraints[i][j];
-        }
-        if (strcmp(lp->operators[i],"<=") == 0) {
-            simplex[i][i + num_vars] = 1;
-        }
-        else if (strcmp(lp->operators[i], ">=") == 0) {
-            simplex[i][i + num_vars] = -1;
-            simplex[i][i + num_vars + num_constraints] = 1;
-        }
-        else if (strcmp(lp->operators[i],"=") == 0) {
-            simplex[i][i + num_vars + num_constraints] = 1;
-        } 
     }
 
     c_row = simplex_prepare_c_row(num_vars, num_constraints, lp->objective, lp->operators);
@@ -616,6 +615,7 @@ int lpp_solve(struct LPProblem *lp) {
         free(simplex);
         return 3;
     }
+
     c_z_row = simplex_prepare_c_z_row(num_vars + (num_constraints * 2), c_row, z_row);
     if (c_z_row == NULL) {
         free(basis_column);
@@ -629,6 +629,7 @@ int lpp_solve(struct LPProblem *lp) {
     }
 
     while (simplex_check_optimal_solution(c_z_row, num_vars + (num_constraints * 2))) {
+        /* PRINT PRO TESTOVÁNÍ */
         /* printf("\n BASIS  \n");
         for(i = 0; i < num_constraints; i++) {
             printf("%s | %f\n",lp->b_column_vars[i], basis_column[i]);
@@ -650,6 +651,7 @@ int lpp_solve(struct LPProblem *lp) {
 
         pivot_column_index = simplex_find_pivot(c_z_row, num_vars + (num_constraints * 2));
         if (pivot_column_index < 0 || pivot_column_index >= num_vars + (num_constraints * 2)) {
+            /* Nenašel se žádný vhodný pivotní prvek */
             free(c_row);
             free(basis_column);
             free(z_row);
@@ -663,6 +665,7 @@ int lpp_solve(struct LPProblem *lp) {
 
         pivot_row_index = simplex_find_basis_replace(lp->rhs, pivot_column_index, num_constraints, simplex);
         if (pivot_row_index < 0 || pivot_row_index >= num_constraints) {
+            /* Nenašel se žádný vhodný pivotní prvek */
             free(c_row);
             free(basis_column);
             free(z_row);
@@ -689,12 +692,12 @@ int lpp_solve(struct LPProblem *lp) {
         basis_column[pivot_row_index] = c_row[pivot_column_index];
 
         pivot_value = simplex[pivot_row_index][pivot_column_index];
-        if(pivot_value <= 0) {
+        if (pivot_value <= 0) {
             return 20;
         }
 
         /* Změná názvů proměnných */
-        if(pivot_column_index >= num_vars) {
+        if (pivot_column_index >= num_vars) {
             if (pivot_column_index >= num_vars + num_constraints) {
                 strcpy(lp->b_column_vars[pivot_row_index], "a");
             }
@@ -723,6 +726,7 @@ int lpp_solve(struct LPProblem *lp) {
             }
         }
 
+        /* Aktualizuji Z-row a C-Z-row pro další výpočet */
         free(z_row);
         free(c_z_row);
         z_row = NULL;
@@ -741,22 +745,23 @@ int lpp_solve(struct LPProblem *lp) {
     }
     free(simplex);
 
-    for(i = 0; i < num_constraints; i++) {
-        if(strcmp(lp->b_column_vars[i], "a") == 0) {
+    /* Pokud zůstala v bázovém sloupci artificial proměnná, tak úloha nemá řešení */
+    for (i = 0; i < num_constraints; i++) {
+        if (strcmp(lp->b_column_vars[i], "a") == 0) {
             return 21;
         }
     }
 
-    for(i = 0; i < lp->num_vars; i++) {
-        for(j = 0; j < lp->num_constraints; j++) {
-            if(strcmp(lp->vars[i], lp->b_column_vars[j]) == 0) {
-                if((lp->lower_bounds[i] > lp->rhs[j] && lp->lower_bounds[i] != -1) || (lp->upper_bounds[i] < lp->rhs[j] && lp->upper_bounds[i] != -1)) {
+    /* Kontrola jestli výsledek neporušuje bounds */
+    for (i = 0; i < num_vars; i++) {
+        for (j = 0; j < num_constraints; j++) {
+            if (strcmp(lp->vars[i], lp->b_column_vars[j]) == 0) {
+                if ((lp->lower_bounds[i] > lp->rhs[j] && lp->lower_bounds[i] != -1) || (lp->upper_bounds[i] < lp->rhs[j] && lp->upper_bounds[i] != -1)) {
                     return 21;
                 }
             }
         }
     }
-
 
     return 0;
 }

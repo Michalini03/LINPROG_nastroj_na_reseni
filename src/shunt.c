@@ -10,33 +10,39 @@ int queue_rear = -1;
 
 void shunt_push(char c) {
     if (stack_top >= MAX_STACK_SIZE - 1) {
-        printf("Stack overflow\n");
-        exit(1);
+        printf("Memory overflow!\n");
+        return;
     }
+
     stack[++stack_top] = c;
 }
 
 char shunt_pop() {
     if (stack_top < 0) {
-        printf("Stack underflow\n");
-        exit(1);
+        printf("Stack empty!\n");
+        return '\0';
     }
+
     return stack[stack_top--];
 }
 
 char shunt_peek() {
-    if (stack_top < 0) return '\0';
+    if (stack_top < 0) {
+        printf("Stack empty!\n");
+        return '\0';
+    }
+
     return stack[stack_top];
 }
 
 void shunt_enqueue(const char *token) {
-    if(!token) {
+    if (!token) {
         return;
     }
 
     if (queue_rear >= MAX_QUEUE_SIZE - 1) {
-        printf("Queue overflow\n");
-        exit(1);
+        printf("Queue overflow!\n");
+        return;
     }
     strcpy(queue[++queue_rear], token);
 }
@@ -61,7 +67,7 @@ int shunt_precedence(char op) {
 
 void shunt_print_postfix(char **postfix) {
     int i;
-    if(!postfix || !*postfix) {
+    if (!postfix || !*postfix) {
         return;
     }
 
@@ -87,7 +93,7 @@ int shunt_get_postfix(char *infix, char **postfix) {
         char ch = infix[i];
 
         /* Ověření záporných čísel */
-        if(ch == '-' && (strcmp(last_char, "") == 0 || shunt_is_operator(last_char[0]) || shunt_is_closed_bracket(last_char[0]) || shunt_is_open_bracket(last_char[0]))){
+        if (ch == '-' && (strcmp(last_char, "") == 0 || shunt_is_operator(last_char[0]) || shunt_is_closed_bracket(last_char[0]) || shunt_is_open_bracket(last_char[0]))){
             shunt_enqueue("-1");
             shunt_push('*');
             continue;
@@ -181,7 +187,6 @@ int shunt_get_postfix(char *infix, char **postfix) {
                 shunt_enqueue(op);
             }
             if (stack_top < 0 || shunt_peek() != (ch == ')' ? '(' : ch == ']' ? '[' : '{')) {
-                printf("Error: Mismatched brackets\n");
                 return 1;
             }
             shunt_pop();
@@ -192,8 +197,8 @@ int shunt_get_postfix(char *infix, char **postfix) {
 
         /* Ignorovat mezery */
         if (ch == ' ') continue;
-
-        printf("Error: Unknown character '%c'\n", ch);
+        
+        /* Pokud se dostanu až sem, jedná se o nepovolený charakter */
         return 1;
     }
 
@@ -264,7 +269,7 @@ Expression postfix_create_expression() {
     expr.capacity = 10;
     expr.terms = malloc(expr.capacity * sizeof(Term));
 
-    if(!expr.terms) {
+    if (!expr.terms) {
         expr.size = -1;
         expr.capacity = -1;
         expr.terms = NULL;
@@ -276,7 +281,7 @@ Expression postfix_create_expression() {
 
 void postfix_free_expression(Expression *expr) {
     int i;
-    if(!expr) {
+    if (!expr) {
         return;
     }
 
@@ -312,8 +317,13 @@ Expression postfix_apply_operator(char op, Expression left, Expression right) {
     int i;
     Expression result = postfix_create_expression();
 
+    if (result.size < 0) {
+        return result;
+    }
+
     if (op == '+') {
         if (!left.terms[0].variable && !right.terms[0].variable) {
+            /* Sjednocení jednoduchých výrazů (např 2 + 7 = 9)*/
             result.terms[0].variable = NULL;
             result.terms[0].coefficient = left.terms[0].coefficient + right.terms[0].coefficient;
             result.size = 1;
@@ -343,7 +353,8 @@ Expression postfix_apply_operator(char op, Expression left, Expression right) {
     } else if (op == '*') {
         if (left.size == 1 && left.terms[0].variable == NULL) {
             double constant = left.terms[0].coefficient;
-            if(right.size == 1 && right.terms[0].variable == NULL) {
+
+            if (right.size == 1 && right.terms[0].variable == NULL) {
                 result.terms[0].variable = NULL;
                 result.terms[0].coefficient = left.terms[0].coefficient * right.terms[0].coefficient;
                 result.size = 1;
@@ -355,6 +366,7 @@ Expression postfix_apply_operator(char op, Expression left, Expression right) {
             }
         } else if (right.size == 1 && right.terms[0].variable == NULL) {
             double constant = right.terms[0].coefficient;
+
             for (i = 0; i <= left.size; i++) {
                 postfix_add_term(&result, left.terms[i].variable, left.terms[i].coefficient * constant);
             }
@@ -367,7 +379,8 @@ Expression postfix_apply_operator(char op, Expression left, Expression right) {
     } else if (op == '/') { 
       if (left.size == 1 && left.terms[0].variable == NULL) {
             double constant = left.terms[0].coefficient;
-            if(right.size == 1 && right.terms[0].variable == NULL) {
+            
+            if (right.size == 1 && right.terms[0].variable == NULL) {
                 result.terms[0].variable = NULL;
                 result.terms[0].coefficient = left.terms[0].coefficient / right.terms[0].coefficient;
                 result.size = 1;
@@ -379,6 +392,7 @@ Expression postfix_apply_operator(char op, Expression left, Expression right) {
             }
         } else if (right.size == 1 && right.terms[0].variable == NULL) {
             double constant = right.terms[0].coefficient;
+            
             for (i = 0; i < left.size; i++) {
                 postfix_add_term(&result, left.terms[i].variable, constant / left.terms[i].coefficient);
             }
@@ -400,75 +414,89 @@ Expression postfix_apply_operator(char op, Expression left, Expression right) {
 }
 
 Expression postfix_parse_expression(char **tokens) {
-    Expression stack[100];
-    Expression expr, right, left, result;
+    Expression expr_stack[100];             /**< Zásobník pro výrazy, když narazíme na logický operátor */
+    Expression expr, right, left, result;   /**< Potřebné výrazy pro naši práci */
     int i, j, stack_size, token_count;
 
+    /* Jelikož funkce vyhazuje strukturu Expression, tak vyhodím chybný a zbytečný výraz */
     if(!tokens || !*tokens) {
-        stack[0].size = -1;
-        stack[0].capacity = -1;
-        stack[0].terms = NULL;
-        return stack[0];
+        expr_stack[0].size = -1;
+        expr_stack[0].capacity = -1;
+        expr_stack[0].terms = NULL;
+        return expr_stack[0];
     }
     
     stack_size = 0;
-    token_count = queue_rear;
+    token_count = queue_rear; 
 
     for (i = 0; i < token_count; i++) {
         const char *token = tokens[i];
 
-        if (isdigit(token[0]) || (token[0] == '-' && isdigit(token[1]))) {
+        if (isdigit(token[0]) || (token[0] == '-' && isdigit(token[1]))) {      /* Pokud se jedná o proměnnou či číslo, vytvořím nový expression */
             expr = postfix_create_expression();
-            postfix_add_term(&expr, NULL, atof(token));
-            stack[stack_size++] = expr;
-        } else if (shunt_is_operator(token[0]) && token[1] == '\0') {
-            if (stack_size < 2) {
-                for(i = 0; i < stack_size; i++) {
-                    for(j = 0; j < stack[i].size; j++) {
-                        free(stack[i].terms[j].variable); 
-                    }
-                    free(stack[i].terms);
-                }
-                stack[0].size = -1;
-                stack[0].capacity = -1;
-                stack[0].terms = NULL;
-                return stack[0];
+            if (expr.size < 0) {
+                return expr;
             }
 
-            right = stack[--stack_size];
-            left = stack[--stack_size];
+            postfix_add_term(&expr, NULL, atof(token));
+            expr_stack[stack_size++] = expr;
+        } else if (shunt_is_operator(token[0]) && token[1] == '\0') {
+            /** Pokud už nemám dva výrazy nad kterými mohu zavolat operátor, 
+             * tak se někde stala chyba
+             * */
+            if (stack_size < 2) {
+                for (i = 0; i < stack_size; i++) {
+                    for (j = 0; j < expr_stack[i].size; j++) {
+                        free(expr_stack[i].terms[j].variable); 
+                    }
+                    free(expr_stack[i].terms);
+                }
+                expr_stack[0].size = -1;
+                expr_stack[0].capacity = -1;
+                expr_stack[0].terms = NULL;
+                return expr_stack[0];
+            }
+
+            /* Popnu ze stacku dva nové výrazy, záleží na posloupnosti! */
+            right = expr_stack[--stack_size];
+            left = expr_stack[--stack_size];
 
             result = postfix_apply_operator(token[0], left, right);
             postfix_free_expression(&left);
             postfix_free_expression(&right);
 
-            stack[stack_size++] = result;
+            if (result.size < 0) {
+                return result;
+            }
+
+            expr_stack[stack_size++] = result;
         } else {
             expr = postfix_create_expression();
             postfix_add_term(&expr, token, 1.0);
-            stack[stack_size++] = expr;
+            expr_stack[stack_size++] = expr;
         }
     }
 
+    /* Vyprázdním zásobník */
     if (stack_size != 1) {
         for(i = 0; i < stack_size; i++) {
-            for(j = 0; j < stack[i].size; j++) {
-                free(stack[i].terms[j].variable); 
+            for(j = 0; j < expr_stack[i].size; j++) {
+                free(expr_stack[i].terms[j].variable); 
             }
-            free(stack[i].terms);
+            free(expr_stack[i].terms);
         }
-        stack[0].size = -1;
-        stack[0].capacity = -1;
-        stack[0].terms = NULL;
-        return stack[0];
+        expr_stack[0].size = -1;
+        expr_stack[0].capacity = -1;
+        expr_stack[0].terms = NULL;
+        return expr_stack[0];
     }
 
-    return stack[--stack_size];
+    return expr_stack[--stack_size];
 }
 
 void postfix_print_expression(const Expression *expr) {
     int i;
-    if(!expr) {
+    if (!expr) {
         return;
     }
 

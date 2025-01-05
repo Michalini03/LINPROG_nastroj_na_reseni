@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include "simplex.h"
 #include "shunt.h"
 
@@ -20,7 +21,6 @@
 #define NUM_OF_MAX 2
 #define NUM_OF_BOUNDS 3
 #define NUM_OF_GENERALS 4
-
 
 /**
  * \struct LPProblem

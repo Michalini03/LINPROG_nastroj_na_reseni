@@ -12,8 +12,8 @@
 #define MAX_QUEUE_SIZE 200
 
 
-/* VYTVOŘENÍ POSTFIXU */
 
+/* VYTVOŘENÍ POSTFIXU */
 /**
  * \brief shunt_push Funkce přidá charakter na zásobník.
  * \param c Předaný charakter.
